@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Demo de Votación — Aptos (red local)</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --card2: #273449;
+    --accent: #38bdf8;
+    --accent2: #22c55e;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --bar: #334155;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(160deg, #0f172a, #020617);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.9rem; }
+  .status-bar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border-radius: 10px; padding: 10px 14px;
+    margin-bottom: 20px; font-size: 0.9rem;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+  .dot.bad { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  .card {
+    background: var(--card); border-radius: 14px; padding: 20px;
+    margin-bottom: 18px; border: 1px solid #334155;
+  }
+  .card h2 { margin: 0 0 14px; font-size: 1.1rem; }
+  .candidate { margin-bottom: 16px; }
+  .candidate .row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.95rem; }
+  .candidate .name { font-weight: 600; }
+  .candidate .addr { color: var(--muted); font-size: 0.78rem; font-family: ui-monospace, monospace; }
+  .track { background: var(--bar); border-radius: 8px; height: 26px; overflow: hidden; }
+  .fill {
+    height: 100%; background: linear-gradient(90deg, var(--accent), #0ea5e9);
+    width: 0%; transition: width .5s ease; display: flex; align-items: center;
+    justify-content: flex-end; padding-right: 8px; font-size: 0.8rem; font-weight: 700; color: #06283d;
+  }
+  .fill.winner { background: linear-gradient(90deg, #fde047, #f59e0b); color: #3b2a00; }
+  .winner-banner {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24); color: #3b2a00;
+    border-radius: 10px; padding: 12px 16px; font-weight: 700; margin-top: 8px;
+    display: none;
+  }
+  .winner-banner.show { display: block; }
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; }
+  button {
+    border: none; border-radius: 10px; padding: 10px 16px; font-size: 0.9rem;
+    font-weight: 600; cursor: pointer; color: #06283d; background: var(--accent);
+    transition: transform .08s ease, opacity .2s;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  button.secondary { background: #64748b; color: #fff; }
+  button.declare { background: var(--accent2); color: #042f17; }
+  .vote-group { margin-bottom: 12px; }
+  .vote-group .lbl { color: var(--muted); font-size: 0.82rem; margin-bottom: 6px; }
+  .log {
+    background: #0b1120; border-radius: 10px; padding: 12px; font-family: ui-monospace, monospace;
+    font-size: 0.8rem; max-height: 220px; overflow-y: auto; border: 1px solid #1e293b;
+  }
+  .log .line { margin-bottom: 4px; white-space: pre-wrap; word-break: break-word; }
+  .log .ok { color: #4ade80; }
+  .log .err { color: #f87171; }
+  .log .info { color: #7dd3fc; }
+  .hint { color: var(--muted); font-size: 0.8rem; margin-top: 6px; }
+  .pill { display:inline-block; background:#334155; border-radius:6px; padding:1px 7px; font-size:0.72rem; margin-left:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🗳️ Demo de Votación en Aptos</h1>
+  <p class="sub">Interfaz conectada al contrato real <code>my_addrx::Voting</code> corriendo en tu <b>red local</b>.</p>
+
+  <div class="status-bar">
+    <span class="dot" id="netDot"></span>
+    <span id="netStatus">Conectando con la red local (http://localhost:8080)…</span>
+  </div>
+
+  <div class="card">
+    <h2>Estado de la elección <span class="pill" id="refreshPill">auto</span></h2>
+    <div id="candidates"></div>
+    <div class="winner-banner" id="winnerBanner"></div>
+  </div>
+
+  <div class="card">
+    <h2>Emitir voto</h2>
+    <div class="vote-group">
+      <div class="lbl">Vota como <b>Admin</b> (0x82e8…)</div>
+      <div class="btns" id="voteAdmin"></div>
+    </div>
+    <div class="vote-group">
+      <div class="lbl">Vota como <b>Votante 1</b> (0x1813…)</div>
+      <div class="btns" id="voteV1"></div>
+    </div>
+    <div class="vote-group">
+      <div class="lbl">Vota como <b>Votante 2</b> (0x29ef…)</div>
+      <div class="btns" id="voteV2"></div>
+    </div>
+    <p class="hint">Si una cuenta intenta votar dos veces, el contrato aborta con <b>E_HAS_VOTED</b> (lo verás en el registro).</p>
+  </div>
+
+  <div class="card">
+    <h2>Cerrar elección</h2>
+    <div class="btns">
+      <button class="declare" id="declareBtn">🏆 Declarar ganador (solo admin)</button>
+    </div>
+    <p class="hint">Tras declarar ganador ya no se puede votar ni agregar candidatos (E_WINNER_DECLARED).</p>
+  </div>
+
+  <div class="card">
+    <h2>Registro de transacciones</h2>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script type="module">
+import {
+  Aptos, AptosConfig, Network, Account, Ed25519PrivateKey,
+} from "https://cdn.jsdelivr.net/npm/@aptos-labs/ts-sdk@1.33.1/+esm";
+
+// ---------------------------------------------------------------------------
+// CONFIGURACIÓN (red local de prueba — claves sin valor real)
+// ---------------------------------------------------------------------------
+const NODE_URL   = "http://localhost:8080";
+const MODULE     = "Voting";
+const ADMIN_ADDR = "0x82e85f5a4b543ee051869e43f0f4af091d35ac15ffc787554c325105ef241246";
+
+// Cuentas de demo (private keys de la red LOCAL — no usar en testnet/mainnet)
+const ACCOUNTS = {
+  admin: { label: "Admin",     pk: "0x684577dece11bfa2fa6af74b8f82ad3644c54b45003ddf967e2727b2ee57cdf3" },
+  v1:    { label: "Votante 1", pk: "0x83cfd6bebb8ec47dd400b0f0805d944f76bbb407bb1fff527bfc8c848988593c" },
+  v2:    { label: "Votante 2", pk: "0xf14878169721f2b1ec146a22bf157bcdaf88af4c9ce46a48dc5afaf70278c1e3" },
+};
+
+const config = new AptosConfig({
+  network: Network.CUSTOM,
+  fullnode: NODE_URL + "/v1",
+});
+const aptos = new Aptos(config);
+
+function makeAccount(pk) {
+  return Account.fromPrivateKey({ privateKey: new Ed25519PrivateKey(pk) });
+}
+const SIGNERS = {
+  admin: makeAccount(ACCOUNTS.admin.pk),
+  v1:    makeAccount(ACCOUNTS.v1.pk),
+  v2:    makeAccount(ACCOUNTS.v2.pk),
+};
+
+// ---------------------------------------------------------------------------
+// UTILIDADES DE UI
+// ---------------------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+const logEl = $("log");
+
+function log(msg, type = "info") {
+  const line = document.createElement("div");
+  line.className = "line " + type;
+  const t = new Date().toLocaleTimeString();
+  line.textContent = `[${t}] ${msg}`;
+  logEl.prepend(line);
+}
+
+function setNet(ok, text) {
+  $("netDot").className = "dot " + (ok ? "ok" : "bad");
+  $("netStatus").textContent = text;
+}
+
+function shortAddr(a) {
+  if (!a) return "";
+  return a.slice(0, 6) + "…" + a.slice(-4);
+}
+
+// ---------------------------------------------------------------------------
+// LECTURA DEL ESTADO (recurso CandidateList del admin)
+// ---------------------------------------------------------------------------
+let busy = false;
+
+async function fetchState() {
+  const resType = `${ADMIN_ADDR}::${MODULE}::CandidateList`;
+  const res = await aptos.getAccountResource({
+    accountAddress: ADMIN_ADDR,
+    resourceType: resType,
+  });
+  // SimpleMap se serializa como { data: [ {key, value}, ... ] }
+  const entries = res.candidate_list.data || [];
+  const order   = res.c_list || [];
+  const winner  = res.winner;
+
+  // Mantener el orden de c_list (orden de registro).
+  const votesByAddr = {};
+  for (const e of entries) votesByAddr[e.key] = Number(e.value);
+  const candidates = order.map((addr) => ({ addr, votes: votesByAddr[addr] ?? 0 }));
+  return { candidates, winner };
+}
+
+function isNoWinner(winner) {
+  // @0x0 en cualquiera de sus representaciones = aún no hay ganador
+  return !winner || /^0x0+$/.test(winner);
+}
+
+function render(state) {
+  const { candidates, winner } = state;
+  const max = Math.max(1, ...candidates.map((c) => c.votes));
+  const hasWinner = !isNoWinner(winner);
+
+  const cont = $("candidates");
+  cont.innerHTML = "";
+  candidates.forEach((c, idx) => {
+    const isWin = hasWinner && BigInt(winner) === BigInt(c.addr);
+    const pct = (c.votes / max) * 100;
+    const div = document.createElement("div");
+    div.className = "candidate";
+    div.innerHTML = `
+      <div class="row">
+        <span class="name">Candidato ${idx + 1} ${isWin ? "👑" : ""}</span>
+        <span class="addr">${c.addr}</span>
+      </div>
+      <div class="track">
+        <div class="fill ${isWin ? "winner" : ""}" style="width:${Math.max(pct, 8)}%">
+          ${c.votes} voto${c.votes === 1 ? "" : "s"}
+        </div>
+      </div>`;
+    cont.appendChild(div);
+  });
+
+  const banner = $("winnerBanner");
+  if (hasWinner) {
+    const idx = candidates.findIndex((c) => BigInt(c.addr) === BigInt(winner));
+    banner.textContent = `🏆 Ganador declarado: Candidato ${idx + 1} (${shortAddr(winner)})`;
+    banner.classList.add("show");
+  } else {
+    banner.classList.remove("show");
+  }
+
+  // Botones de voto: un botón por candidato, por cada cuenta.
+  buildVoteButtons("voteAdmin", "admin", candidates, hasWinner);
+  buildVoteButtons("voteV1", "v1", candidates, hasWinner);
+  buildVoteButtons("voteV2", "v2", candidates, hasWinner);
+
+  $("declareBtn").disabled = busy || hasWinner;
+}
+
+function buildVoteButtons(containerId, who, candidates, hasWinner) {
+  const cont = $(containerId);
+  cont.innerHTML = "";
+  candidates.forEach((c, idx) => {
+    const b = document.createElement("button");
+    b.textContent = `→ Candidato ${idx + 1}`;
+    b.disabled = busy || hasWinner;
+    b.onclick = () => castVote(who, c.addr, idx + 1);
+    cont.appendChild(b);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// TRANSACCIONES (votar / declarar ganador)
+// ---------------------------------------------------------------------------
+async function submit(signer, func, args) {
+  const txn = await aptos.transaction.build.simple({
+    sender: signer.accountAddress,
+    data: {
+      function: `${ADMIN_ADDR}::${MODULE}::${func}`,
+      functionArguments: args,
+    },
+  });
+  const pending = await aptos.signAndSubmitTransaction({ signer, transaction: txn });
+  await aptos.waitForTransaction({ transactionHash: pending.hash });
+  return pending.hash;
+}
+
+async function castVote(who, candidateAddr, candidateNum) {
+  if (busy) return;
+  busy = true;
+  await refresh();
+  const signer = SIGNERS[who];
+  const label = ACCOUNTS[who].label;
+  log(`${label} vota por Candidato ${candidateNum}…`, "info");
+  try {
+    const hash = await submit(signer, "vote", [candidateAddr, ADMIN_ADDR]);
+    log(`✓ Voto emitido por ${label}. Tx: ${shortAddr(hash)}`, "ok");
+  } catch (e) {
+    log(`✗ ${label} no pudo votar: ${parseError(e)}`, "err");
+  } finally {
+    busy = false;
+    await refresh();
+  }
+}
+
+async function declareWinner() {
+  if (busy) return;
+  busy = true;
+  await refresh();
+  log("Admin declara ganador…", "info");
+  try {
+    const hash = await submit(SIGNERS.admin, "declare_winner", []);
+    log(`✓ Ganador declarado. Tx: ${shortAddr(hash)}`, "ok");
+  } catch (e) {
+    log(`✗ No se pudo declarar ganador: ${parseError(e)}`, "err");
+  } finally {
+    busy = false;
+    await refresh();
+  }
+}
+$("declareBtn").onclick = declareWinner;
+
+// Traduce códigos de abort del contrato a mensajes legibles.
+function parseError(e) {
+  const msg = (e && (e.message || e.toString())) || "error desconocido";
+  const m = msg.match(/(?:abort[_\s]?code|Move abort.*?)[^\d]*(\d+)/i);
+  const codes = {
+    0: "E_NOT_OWNER — no eres el administrador",
+    1: "E_IS_NOT_INITIALIZED — la elección no está inicializada",
+    2: "E_DOES_NOT_CONTAIN_KEY — ese candidato no existe",
+    3: "E_IS_INITIALIZED — ya estaba inicializada",
+    4: "E_IS_INITIALIZED_WITH_CANDIDATE — candidato duplicado",
+    5: "E_WINNER_DECLARED — ya hay ganador, no se admiten cambios",
+    6: "E_HAS_VOTED — esa cuenta ya votó",
+  };
+  if (m && codes[m[1]]) return codes[m[1]];
+  return msg;
+}
+
+// ---------------------------------------------------------------------------
+// REFRESCO AUTOMÁTICO
+// ---------------------------------------------------------------------------
+async function refresh() {
+  try {
+    const state = await fetchState();
+    render(state);
+    setNet(true, "Conectado a la red local ✓ — leyendo estado del contrato");
+  } catch (e) {
+    const msg = parseError(e);
+    if (/CandidateList|Resource not found|404/i.test(msg)) {
+      setNet(false, "Red conectada, pero la elección no está inicializada en el admin.");
+    } else {
+      setNet(false, "Sin conexión con la red local. ¿Está corriendo en http://localhost:8080?");
+    }
+  }
+}
+
+log("Interfaz lista. Conectando con la red local…", "info");
+refresh();
+setInterval(() => { if (!busy) refresh(); }, 2000);
+</script>
+</body>
+</html>

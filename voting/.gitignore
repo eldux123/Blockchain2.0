@@ -1,0 +1,12 @@
+# --- Artefactos de compilación de Move (se regeneran con `aptos move`) ---
+build/
+
+# --- Estado y configuración local del CLI / red local de Aptos ---
+.aptos/
+
+# --- Claves privadas de la red local de DEMO ---
+# Son claves de una red local de prueba (sin valor real), pero NO deben
+# subirse a un repositorio. Se mantienen solo en la máquina de la demo.
+keys/
+*_key
+*_key.pub
