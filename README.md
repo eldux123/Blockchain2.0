@@ -280,7 +280,3 @@ voting/
 ├── .aptos/                # Config del CLI y estado de la red local (generado)
 └── build/                 # Artefactos de compilación (generado)
 ```
-
-> `Move.toml` y `sources/` deben permanecer en la raíz: el compilador de Move los
-> busca exactamente ahí. El resto de carpetas (`frontend/`, `scripts/`, `docs/`,
-> `keys/`) son organización del proyecto y pueden reubicarse si se ajustan las rutas.
